@@ -1,0 +1,22 @@
+{
+  "name": "solead",
+  "version": "1.0.0",
+  "description": "AI-powered lead generation platform for Threads using Stagehand",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "echo 'Please run npm run dev:backend or npm run dev:frontend'",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "test:stagehand": "cd plugins/stagehand/examples && npx tsx simple-demo.ts"
+  },
+  "dependencies": {
+    "@browserbasehq/stagehand": "latest",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.0.0"
+  }
+}
