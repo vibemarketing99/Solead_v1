@@ -1,0 +1,347 @@
+import { Stagehand } from '@browserbasehq/stagehand';
+import { Logger } from '../utils/Logger';
+import { StagehandConfig, ExtractedPost, SearchResult } from '../types/stagehand';
+import { HumanizationProfile } from './HumanizationProfile';
+import { PlaywrightFallback } from './PlaywrightFallback';
+
+/**
+ * StagehandAutomation class provides AI-powered browser automation for Threads
+ * using natural language commands with automatic fallback to Playwright
+ */
+export class StagehandAutomation {
+  private stagehand: Stagehand | null = null;
+  private config: StagehandConfig;
+  private logger: Logger;
+  private humanization: HumanizationProfile;
+  private fallback: PlaywrightFallback;
+  private sessionCookies: string;
+  private isInitialized: boolean = false;
+
+  constructor(config: StagehandConfig, sessionCookies: string) {
+    this.config = config;
+    this.sessionCookies = sessionCookies;
+    this.logger = new Logger('StagehandAutomation');
+    this.humanization = new HumanizationProfile();
+    this.fallback = new PlaywrightFallback(sessionCookies);
+  }
+
+  /**
+   * Initialize Stagehand with BrowserBase and session cookies
+   */
+  async initialize(): Promise<void> {
+    try {
+      this.logger.info('Initializing Stagehand with BrowserBase');
+      
+      // Initialize Stagehand with configuration
+      this.stagehand = new Stagehand({
+        env: 'BROWSERBASE',
+        apiKey: process.env.BROWSERBASE_API_KEY,
+        projectId: process.env.BROWSERBASE_PROJECT_ID,
+        verbose: this.config.debugMode ? 2 : 0, // Use numeric log levels
+        enableCaching: this.config.enableCaching,
+        modelName: this.config.modelName,
+        modelClientOptions: this.config.modelClientOptions,
+        logger: this.config.logger,
+        domSettleTimeoutMs: this.config.timeout || 3000
+      });
+
+      await this.stagehand.init();
+
+      // Note: Viewport is handled by BrowserBase configuration
+      // The page is automatically configured with appropriate settings
+
+      // Navigate to Threads
+      await this.stagehand.page.goto('https://www.threads.net', {
+        waitUntil: 'networkidle'
+      });
+
+      // Inject session cookies
+      await this.injectSessionCookies();
+
+      // Validate session is active
+      const isValid = await this.validateSession();
+      if (!isValid) {
+        throw new Error('Session validation failed after cookie injection');
+      }
+
+      this.isInitialized = true;
+      this.logger.info('Stagehand initialization complete');
+    } catch (error) {
+      this.logger.error('Failed to initialize Stagehand, falling back to Playwright', error);
+      await this.fallback.initialize();
+      throw error;
+    }
+  }
+
+  /**
+   * Search Threads and extract posts matching keywords
+   */
+  async searchAndExtract(keywords: string[], maxResults: number = 50): Promise<SearchResult> {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      const searchQuery = keywords.join(' OR ');
+      this.logger.info(`Searching for: ${searchQuery}`);
+
+      // Apply human-like delay before search
+      await this.humanization.randomDelay();
+
+      // Use Stagehand's natural language action to search
+      await this.stagehand!.page.act(`Search for "${searchQuery}" on Threads`);
+
+      // Wait for results to load with human-like pattern
+      await this.humanization.simulateReading();
+
+      // Extract structured data using natural language instructions
+      const extractResult = await this.stagehand!.page.extract(
+        `Extract all posts from the search results as a JSON object with the following structure:
+         - posts: array of post objects, each containing:
+           - postId: unique identifier
+           - author: author name
+           - authorHandle: author username/handle
+           - content: post text
+           - metrics: object with likes, replies, reposts counts
+           - timestamp: when posted
+           - hasQuestion: boolean if contains question
+           - hashtags: array of hashtags
+           - mentions: array of mentions
+           - threadUrl: direct URL to the post
+         - nextPageAvailable: boolean if more results can be loaded
+         - totalFound: total number of posts found`
+      ) as SearchResult;
+
+      // Apply human-like scrolling to load more results if needed
+      if (extractResult.posts.length < maxResults && extractResult.nextPageAvailable) {
+        await this.loadMoreResults(maxResults - extractResult.posts.length);
+      }
+
+      this.logger.info(`Extracted ${extractResult.posts.length} posts`);
+      return extractResult;
+
+    } catch (error) {
+      this.logger.error('Stagehand search failed, using fallback', error);
+      return await this.fallback.searchAndExtract(keywords, maxResults);
+    }
+  }
+
+  /**
+   * Navigate directly to a specific Threads post
+   */
+  async navigateToPost(postUrl: string): Promise<ExtractedPost> {
+    try {
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+
+      this.logger.info(`Navigating to post: ${postUrl}`);
+
+      // Human-like navigation delay
+      await this.humanization.randomDelay();
+
+      // Navigate using natural language
+      await this.stagehand!.page.act(`Navigate to the Threads post at ${postUrl}`);
+
+      // Wait for post to load
+      await this.humanization.simulateReading();
+
+      // Extract detailed post data
+      const postData = await this.stagehand!.page.extract(
+        `Extract complete information from this Threads post as a JSON object with:
+         - postId: unique identifier
+         - author: author name
+         - authorHandle: author username
+         - content: full post text
+         - metrics: object with likes, replies, reposts, quotes counts
+         - timestamp: when posted
+         - hasQuestion: boolean if contains question
+         - hashtags: array of hashtags
+         - mentions: array of mentions
+         - threadUrl: the URL of this post`
+      ) as ExtractedPost;
+
+      return postData;
+
+    } catch (error) {
+      this.logger.error('Failed to navigate to post, using fallback', error);
+      return await this.fallback.navigateToPost(postUrl);
+    }
+  }
+
+  /**
+   * Validate current session is authenticated and healthy
+   */
+  async validateSession(): Promise<boolean> {
+    try {
+      this.logger.debug('Validating session health');
+
+      // Check if we're logged in by looking for user-specific elements
+      const validationResult = await this.stagehand!.page.extract(
+        `Check if the user is logged in and return a JSON object with:
+         - isLoggedIn: boolean indicating if user is authenticated
+         - username: the logged-in username if visible
+         - hasComposeButton: boolean if compose/create button exists
+         - hasProfileMenu: boolean if profile menu is present`
+      ) as { isLoggedIn: boolean; username?: string; hasComposeButton: boolean; hasProfileMenu: boolean };
+
+      const isValid = validationResult.isLoggedIn && 
+                     (validationResult.hasComposeButton || validationResult.hasProfileMenu);
+
+      if (isValid) {
+        this.logger.info(`Session valid for user: ${validationResult.username || 'unknown'}`);
+      } else {
+        this.logger.warn('Session validation failed - not logged in');
+      }
+
+      return isValid;
+
+    } catch (error) {
+      this.logger.error('Session validation error', error);
+      return false;
+    }
+  }
+
+  /**
+   * Browse Threads with human-like patterns for anti-detection
+   */
+  async browseWithHumanPattern(duration: number = 60000): Promise<void> {
+    try {
+      const startTime = Date.now();
+      
+      while (Date.now() - startTime < duration) {
+        // Random action selection
+        const action = this.humanization.selectRandomAction();
+        
+        switch (action) {
+          case 'scroll':
+            await this.humanization.naturalScroll(this.stagehand!.page);
+            break;
+          case 'hover':
+            await this.stagehand!.page.act('Hover over a random post to show interaction options');
+            break;
+          case 'view_profile':
+            await this.stagehand!.page.act('Click on a random user profile to view their posts');
+            await this.humanization.simulateReading();
+            await this.stagehand!.page.act('Go back to the previous page');
+            break;
+          case 'read':
+            await this.humanization.simulateReading();
+            break;
+        }
+
+        // Random delay between actions
+        await this.humanization.randomDelay();
+      }
+
+    } catch (error) {
+      this.logger.error('Error during human-like browsing', error);
+    }
+  }
+
+  /**
+   * Take a screenshot of the current page or specific element
+   */
+  async captureScreenshot(fullPage: boolean = false): Promise<Buffer> {
+    try {
+      const screenshot = await this.stagehand!.page.screenshot({
+        fullPage,
+        type: 'png'
+      });
+      
+      return Buffer.from(screenshot);
+    } catch (error) {
+      this.logger.error('Screenshot capture failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clean up resources and close browser
+   */
+  async cleanup(): Promise<void> {
+    try {
+      if (this.stagehand) {
+        await this.stagehand.close();
+        this.stagehand = null;
+      }
+      
+      await this.fallback.cleanup();
+      this.isInitialized = false;
+      
+      this.logger.info('Cleanup complete');
+    } catch (error) {
+      this.logger.error('Error during cleanup', error);
+    }
+  }
+
+  /**
+   * Private helper methods
+   */
+
+  private async injectSessionCookies(): Promise<void> {
+    try {
+      // Parse and inject cookies
+      const cookies = JSON.parse(this.sessionCookies);
+      
+      for (const cookie of cookies) {
+        await this.stagehand!.page.context().addCookies([{
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain || '.threads.net',
+          path: cookie.path || '/',
+          expires: cookie.expires || undefined,
+          httpOnly: cookie.httpOnly || false,
+          secure: cookie.secure || true,
+          sameSite: cookie.sameSite || 'Lax'
+        }]);
+      }
+
+      // Refresh page to apply cookies
+      await this.stagehand!.page.reload();
+      
+      this.logger.info('Session cookies injected successfully');
+    } catch (error) {
+      this.logger.error('Failed to inject session cookies', error);
+      throw error;
+    }
+  }
+
+  private async loadMoreResults(additionalResults: number): Promise<void> {
+    try {
+      let loaded = 0;
+      
+      while (loaded < additionalResults) {
+        // Scroll to load more with human-like pattern
+        await this.humanization.naturalScroll(this.stagehand!.page);
+        
+        // Try to click "Load more" if available
+        try {
+          await this.stagehand!.page.act('Click the "Show more results" or "Load more" button if visible');
+          
+          await this.humanization.simulateReading();
+          loaded += 10; // Approximate number per load
+        } catch {
+          // No more results to load
+          break;
+        }
+      }
+    } catch (error) {
+      this.logger.warn('Could not load additional results', error);
+    }
+  }
+
+  /**
+   * Get current Stagehand instance (for testing/debugging)
+   */
+  getStagehandInstance(): Stagehand | null {
+    return this.stagehand;
+  }
+
+  /**
+   * Check if currently using fallback mode
+   */
+  isUsingFallback(): boolean {
+    return this.fallback.isActive();
+  }
+}

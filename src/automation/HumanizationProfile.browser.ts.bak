@@ -1,0 +1,315 @@
+import { Page } from 'playwright';
+import { Logger } from '../utils/Logger';
+
+/**
+ * HumanizationProfile provides human-like browsing patterns for anti-detection
+ * Implements random delays, natural scrolling, mouse movements, and reading patterns
+ */
+export class HumanizationProfile {
+  private logger: Logger;
+  
+  // Viewport configurations used by real users
+  private viewports = [
+    { width: 1920, height: 1080 }, // Full HD - most common
+    { width: 1366, height: 768 },  // Popular laptop
+    { width: 1440, height: 900 },  // MacBook
+    { width: 1536, height: 864 },  // Surface
+    { width: 1680, height: 1050 }, // MacBook Pro
+    { width: 2560, height: 1440 }  // 2K display
+  ];
+
+  // User agent variations
+  private userAgents = [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
+  ];
+
+  // Browsing action probabilities
+  private actionWeights = {
+    scroll: 0.4,      // 40% chance to scroll
+    hover: 0.2,       // 20% chance to hover
+    view_profile: 0.1, // 10% chance to view profile
+    read: 0.3         // 30% chance to just read
+  };
+
+  constructor() {
+    this.logger = new Logger('HumanizationProfile');
+  }
+
+  /**
+   * Generate random delay between min and max milliseconds
+   */
+  async randomDelay(min: number = 2000, max: number = 8000): Promise<void> {
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    this.logger.debug(`Applying human delay: ${delay}ms`);
+    await this.sleep(delay);
+  }
+
+  /**
+   * Simulate reading time based on content length
+   */
+  async simulateReading(contentLength: number = 500): Promise<void> {
+    // Average reading speed: 200-300 words per minute
+    // Assuming average word length of 5 characters
+    const words = contentLength / 5;
+    const readingSpeed = 250; // words per minute
+    const readingTime = (words / readingSpeed) * 60 * 1000; // Convert to milliseconds
+    
+    // Add some randomness (±20%)
+    const variance = readingTime * 0.2;
+    const actualTime = readingTime + (Math.random() * variance * 2 - variance);
+    
+    const finalTime = Math.max(1500, Math.min(actualTime, 30000)); // Between 1.5s and 30s
+    
+    this.logger.debug(`Simulating reading for ${Math.round(finalTime)}ms (${words} words)`);
+    await this.sleep(finalTime);
+  }
+
+  /**
+   * Perform natural scrolling patterns
+   */
+  async naturalScroll(page: Page): Promise<void> {
+    const scrollPatterns = [
+      'linear',
+      'exponential',
+      'random',
+      'readAndScroll'
+    ];
+    
+    const pattern = scrollPatterns[Math.floor(Math.random() * scrollPatterns.length)];
+    this.logger.debug(`Using scroll pattern: ${pattern}`);
+
+    switch (pattern) {
+      case 'linear':
+        await this.linearScroll(page);
+        break;
+      case 'exponential':
+        await this.exponentialScroll(page);
+        break;
+      case 'random':
+        await this.randomScroll(page);
+        break;
+      case 'readAndScroll':
+        await this.readAndScroll(page);
+        break;
+    }
+  }
+
+  /**
+   * Simulate mouse movement between actions
+   */
+  async simulateMouseMovement(page: Page): Promise<void> {
+    try {
+      const viewport = await page.viewportSize();
+      if (!viewport) return;
+
+      // Generate random bezier curve points for natural movement
+      const points = this.generateBezierPoints(
+        { x: Math.random() * viewport.width, y: Math.random() * viewport.height },
+        { x: Math.random() * viewport.width, y: Math.random() * viewport.height },
+        20 // Number of points
+      );
+
+      // Move mouse along the curve
+      for (const point of points) {
+        await page.mouse.move(point.x, point.y);
+        await this.sleep(50 + Math.random() * 100);
+      }
+
+      this.logger.debug('Mouse movement simulation complete');
+    } catch (error) {
+      this.logger.warn('Mouse movement simulation failed', error);
+    }
+  }
+
+  /**
+   * Get random viewport configuration
+   */
+  getRandomViewport(): { width: number; height: number } {
+    const viewport = this.viewports[Math.floor(Math.random() * this.viewports.length)];
+    
+    // Add slight variance (±50px) to avoid exact matches
+    const variance = 50;
+    return {
+      width: viewport!.width + Math.floor(Math.random() * variance * 2 - variance),
+      height: viewport!.height + Math.floor(Math.random() * variance * 2 - variance)
+    };
+  }
+
+  /**
+   * Get random user agent
+   */
+  getRandomUserAgent(): string {
+    return this.userAgents[Math.floor(Math.random() * this.userAgents.length)] || this.userAgents[0];
+  }
+
+  /**
+   * Select random browsing action based on weights
+   */
+  selectRandomAction(): 'scroll' | 'hover' | 'view_profile' | 'read' {
+    const random = Math.random();
+    let cumulative = 0;
+    
+    for (const [action, weight] of Object.entries(this.actionWeights)) {
+      cumulative += weight;
+      if (random < cumulative) {
+        return action as 'scroll' | 'hover' | 'view_profile' | 'read';
+      }
+    }
+    
+    return 'read'; // Default fallback
+  }
+
+  /**
+   * Apply typing delays for human-like text input
+   */
+  async humanType(page: Page, selector: string, text: string): Promise<void> {
+    await page.click(selector);
+    
+    for (const char of text) {
+      await page.type(selector, char);
+      
+      // Variable typing speed (50-250ms per character)
+      const delay = 50 + Math.random() * 200;
+      await this.sleep(delay);
+      
+      // Occasionally pause longer (thinking)
+      if (Math.random() < 0.1) {
+        await this.sleep(500 + Math.random() * 1500);
+      }
+    }
+  }
+
+  /**
+   * Private helper methods
+   */
+
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private async linearScroll(page: Page): Promise<void> {
+    const scrollDistance = 300 + Math.random() * 500;
+    await page.evaluate((distance: number) => {
+      window.scrollBy({
+        top: distance,
+        behavior: 'smooth'
+      });
+    }, scrollDistance);
+    await this.sleep(1000 + Math.random() * 2000);
+  }
+
+  private async exponentialScroll(page: Page): Promise<void> {
+    // Start slow, speed up, then slow down
+    const distances = [100, 150, 250, 400, 250, 150, 100];
+    
+    for (const distance of distances) {
+      await page.evaluate((d: number) => {
+        window.scrollBy({
+          top: d,
+          behavior: 'smooth'
+        });
+      }, distance);
+      await this.sleep(300 + Math.random() * 700);
+    }
+  }
+
+  private async randomScroll(page: Page): Promise<void> {
+    const numScrolls = 2 + Math.floor(Math.random() * 4);
+    
+    for (let i = 0; i < numScrolls; i++) {
+      const distance = 100 + Math.random() * 600;
+      const direction = Math.random() > 0.8 ? -1 : 1; // 20% chance to scroll up
+      
+      await page.evaluate((d: number) => {
+        window.scrollBy({
+          top: d,
+          behavior: 'smooth'
+        });
+      }, distance * direction);
+      
+      await this.sleep(500 + Math.random() * 2000);
+    }
+  }
+
+  private async readAndScroll(page: Page): Promise<void> {
+    // Simulate reading then scrolling pattern
+    await this.simulateReading(300);
+    await this.linearScroll(page);
+    await this.simulateReading(400);
+    await this.linearScroll(page);
+  }
+
+  private generateBezierPoints(
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    numPoints: number
+  ): Array<{ x: number; y: number }> {
+    const points: Array<{ x: number; y: number }> = [];
+    
+    // Generate control points for bezier curve
+    const control1 = {
+      x: start.x + (end.x - start.x) * 0.25 + (Math.random() - 0.5) * 200,
+      y: start.y + (end.y - start.y) * 0.25 + (Math.random() - 0.5) * 200
+    };
+    
+    const control2 = {
+      x: start.x + (end.x - start.x) * 0.75 + (Math.random() - 0.5) * 200,
+      y: start.y + (end.y - start.y) * 0.75 + (Math.random() - 0.5) * 200
+    };
+    
+    // Calculate points along bezier curve
+    for (let i = 0; i <= numPoints; i++) {
+      const t = i / numPoints;
+      const point = this.calculateBezierPoint(t, start, control1, control2, end);
+      points.push(point);
+    }
+    
+    return points;
+  }
+
+  private calculateBezierPoint(
+    t: number,
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number }
+  ): { x: number; y: number } {
+    const u = 1 - t;
+    const tt = t * t;
+    const uu = u * u;
+    const uuu = uu * u;
+    const ttt = tt * t;
+    
+    const x = uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x;
+    const y = uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y;
+    
+    return { x, y };
+  }
+
+  /**
+   * Generate random mouse jitter for more realistic movement
+   */
+  async addMouseJitter(page: Page, duration: number = 1000): Promise<void> {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < duration) {
+      const viewport = await page.viewportSize();
+      if (!viewport) break;
+      
+      const currentPosition = await page.evaluate(() => ({
+        x: ((window as any).mouseX as number) || 0,
+        y: ((window as any).mouseY as number) || 0
+      }));
+      
+      // Small random movements around current position
+      const newX = Math.max(0, Math.min(viewport.width, currentPosition.x + (Math.random() - 0.5) * 10));
+      const newY = Math.max(0, Math.min(viewport.height, currentPosition.y + (Math.random() - 0.5) * 10));
+      
+      await page.mouse.move(newX, newY);
+      await this.sleep(50 + Math.random() * 100);
+    }
+  }
+}

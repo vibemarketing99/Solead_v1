@@ -1,17 +1,78 @@
 {
   "compilerOptions": {
+    /* Language and Environment */
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "./dist",
+    "lib": ["ES2022"],
+    "module": "commonjs",
+    
+    /* Modules */
     "rootDir": "./",
-    "strict": true,
+    "moduleResolution": "node",
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["*"],
+      "@types/*": ["types/*"],
+      "@services/*": ["services/*"],
+      "@models/*": ["models/*"],
+      "@utils/*": ["utils/*"],
+      "@automation/*": ["automation/*"],
+      "@workers/*": ["workers/*"],
+      "@api/*": ["api/*"],
+      "@database/*": ["database/*"],
+      "@processors/*": ["processors/*"],
+      "@queue/*": ["queue/*"],
+      "@monitoring/*": ["monitoring/*"]
+    },
+    "resolveJsonModule": true,
+    
+    /* JavaScript Support */
+    "allowJs": false,
+    
+    /* Emit */
+    "outDir": "./dist",
+    "removeComments": true,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    
+    /* Interop Constraints */
     "esModuleInterop": true,
-    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "allowImportingTsExtensions": false,
-    "noEmit": false
+    
+    /* Type Checking */
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    
+    /* Advanced */
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "src/automation/*.browser.ts.bak",
+    "src/workers/*.browser.ts.bak",
+    "tests/automation/StagehandAutomation.test.ts",
+    "tests/workers/StagehandWorker.test.ts"
+  ],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  }
 }

@@ -1,0 +1,24 @@
+{
+  "id": "lead-001",
+  "authorHandle": "startup_founder",
+  "authorName": "Alex Chen",
+  "threadUrl": "https://threads.net/@startup_founder/post/C123abc456",
+  "text": "We desperately need a solution to automate our social media lead generation. Currently spending 20+ hours/week manually searching. Any recommendations for tools that actually work?",
+  "metrics": {
+    "replies": 23,
+    "likes": 156,
+    "reposts": 12,
+    "views": 2341
+  },
+  "timestamp": "2 hours ago",
+  "score": 0.92,
+  "category": "HOT",
+  "keywords": [
+    "automation",
+    "lead generation",
+    "tools"
+  ],
+  "capturedAt": "2025-08-30T11:08:15.336Z",
+  "screenshotPath": "lead-lead-001-screenshot.html",
+  "actionRequired": "IMMEDIATE"
+}

@@ -1,0 +1,269 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Job Screenshots Viewer - demo-1756551618369</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #667eea;
+      padding-bottom: 15px;
+    }
+    .info-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    .info-item {
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+    }
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .info-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-top: 5px;
+    }
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 25px;
+      margin-top: 30px;
+    }
+    .screenshot-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .screenshot-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .screenshot-preview {
+      height: 250px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+      cursor: pointer;
+    }
+    .screenshot-info {
+      padding: 15px;
+    }
+    .screenshot-title {
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 5px;
+    }
+    .screenshot-time {
+      color: #666;
+      font-size: 14px;
+    }
+    .view-btn {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: background 0.3s ease;
+    }
+    .view-btn:hover {
+      background: #5a67d8;
+    }
+    .timeline {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .timeline-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+    .timeline-icon {
+      font-size: 24px;
+      margin-right: 15px;
+    }
+    .timeline-content {
+      flex: 1;
+    }
+    .timeline-time {
+      color: #999;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📸 Job Screenshot Viewer</h1>
+  
+  <div class="info-card">
+    <h2>Job Execution Summary</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Job ID</div>
+        <div class="info-value">demo-1756551618369</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Total Screenshots</div>
+        <div class="info-value">5</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Keywords</div>
+        <div class="info-value">automation, workflow</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Leads Found</div>
+        <div class="info-value">2</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="timeline">
+    <h2>Execution Timeline</h2>
+    
+      <div class="timeline-item">
+        <div class="timeline-icon">🔐</div>
+        <div class="timeline-content">
+          <div><strong>🔐 Login Screen</strong></div>
+          <div class="timeline-time">7:00:18 PM</div>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-icon">🔍</div>
+        <div class="timeline-content">
+          <div><strong>🔍 Search Query</strong></div>
+          <div class="timeline-time">7:00:20 PM</div>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-icon">🎯</div>
+        <div class="timeline-content">
+          <div><strong>🎯 Lead Found</strong></div>
+          <div class="timeline-time">7:00:23 PM</div>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-icon">🎯</div>
+        <div class="timeline-content">
+          <div><strong>🎯 Lead Found</strong></div>
+          <div class="timeline-time">7:00:26 PM</div>
+        </div>
+      </div>
+    
+      <div class="timeline-item">
+        <div class="timeline-icon">✅</div>
+        <div class="timeline-content">
+          <div><strong>✅ Job Complete</strong></div>
+          <div class="timeline-time">7:00:28 PM</div>
+        </div>
+      </div>
+    
+  </div>
+  
+  <h2>Screenshot Gallery</h2>
+  <div class="screenshots-grid">
+    
+        <div class="screenshot-card">
+          <div class="screenshot-preview" onclick="window.open('screenshots/job-demo-1756551618369-login.html', '_blank')">
+            🔐
+          </div>
+          <div class="screenshot-info">
+            <div class="screenshot-title">🔐 Login Screen</div>
+            <div class="screenshot-time">Captured at 7:00:18 PM</div>
+            <a href="screenshots/job-demo-1756551618369-login.html" target="_blank" class="view-btn">View Full Screenshot</a>
+          </div>
+        </div>
+      
+        <div class="screenshot-card">
+          <div class="screenshot-preview" onclick="window.open('screenshots/job-demo-1756551618369-search.html', '_blank')">
+            🔍
+          </div>
+          <div class="screenshot-info">
+            <div class="screenshot-title">🔍 Search Query</div>
+            <div class="screenshot-time">Captured at 7:00:20 PM</div>
+            <a href="screenshots/job-demo-1756551618369-search.html" target="_blank" class="view-btn">View Full Screenshot</a>
+          </div>
+        </div>
+      
+        <div class="screenshot-card">
+          <div class="screenshot-preview" onclick="window.open('screenshots/job-demo-1756551618369-lead-1.html', '_blank')">
+            🎯
+          </div>
+          <div class="screenshot-info">
+            <div class="screenshot-title">🎯 Lead Found</div>
+            <div class="screenshot-time">Captured at 7:00:23 PM</div>
+            <a href="screenshots/job-demo-1756551618369-lead-1.html" target="_blank" class="view-btn">View Full Screenshot</a>
+          </div>
+        </div>
+      
+        <div class="screenshot-card">
+          <div class="screenshot-preview" onclick="window.open('screenshots/job-demo-1756551618369-lead-2.html', '_blank')">
+            🎯
+          </div>
+          <div class="screenshot-info">
+            <div class="screenshot-title">🎯 Lead Found</div>
+            <div class="screenshot-time">Captured at 7:00:26 PM</div>
+            <a href="screenshots/job-demo-1756551618369-lead-2.html" target="_blank" class="view-btn">View Full Screenshot</a>
+          </div>
+        </div>
+      
+        <div class="screenshot-card">
+          <div class="screenshot-preview" onclick="window.open('screenshots/job-demo-1756551618369-complete.html', '_blank')">
+            ✅
+          </div>
+          <div class="screenshot-info">
+            <div class="screenshot-title">✅ Job Complete</div>
+            <div class="screenshot-time">Captured at 7:00:28 PM</div>
+            <a href="screenshots/job-demo-1756551618369-complete.html" target="_blank" class="view-btn">View Full Screenshot</a>
+          </div>
+        </div>
+      
+  </div>
+  
+  <div style="margin-top: 40px; padding: 20px; background: #e8f4f8; border-radius: 8px;">
+    <h3>💡 How This Works</h3>
+    <p>Each screenshot represents a key moment in the job execution:</p>
+    <ul>
+      <li><strong>Login:</strong> Agent authenticates with Threads</li>
+      <li><strong>Search:</strong> Queries are executed with your keywords</li>
+      <li><strong>Lead Discovery:</strong> Potential leads are identified and captured</li>
+      <li><strong>Completion:</strong> Final summary of the job</li>
+    </ul>
+    <p>In production, these would be actual browser screenshots showing real Threads pages!</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,455 @@
+import { chromium, Browser, BrowserContext, Page } from 'playwright';
+import { Logger } from '../utils/Logger';
+import { ExtractedPost, SearchResult } from '../types/stagehand';
+import { HumanizationProfile } from './HumanizationProfile';
+
+/**
+ * PlaywrightFallback provides direct Playwright automation when Stagehand fails
+ * Uses CSS selectors and DOM manipulation for reliable fallback
+ */
+export class PlaywrightFallback {
+  private browser: Browser | null = null;
+  private context: BrowserContext | null = null;
+  private page: Page | null = null;
+  private logger: Logger;
+  private humanization: HumanizationProfile;
+  private sessionCookies: string;
+  private active: boolean = false;
+
+  // Threads-specific selectors (to be updated based on actual DOM)
+  private selectors = {
+    searchInput: 'input[type="search"], input[placeholder*="Search"]',
+    searchButton: 'button[aria-label*="Search"], button[type="submit"]',
+    postContainer: 'article, div[role="article"], div[data-testid*="post"]',
+    postAuthor: '[data-testid*="author"], a[href*="/profile/"], span.author',
+    postContent: '[data-testid*="content"], div.post-content, p.text',
+    likeCount: '[aria-label*="like"], span.likes-count, button[aria-label*="Like"] span',
+    replyCount: '[aria-label*="repl"], span.replies-count, button[aria-label*="Reply"] span',
+    repostCount: '[aria-label*="repost"], span.reposts-count, button[aria-label*="Repost"] span',
+    timestamp: 'time, a[href*="/post/"] time, span.timestamp',
+    profileMenu: '[aria-label*="Profile"], [data-testid*="profile-menu"]',
+    composeButton: 'button[aria-label*="Compose"], button[aria-label*="Create"]',
+    loadMoreButton: 'button:has-text("Load more"), button:has-text("Show more")'
+  };
+
+  constructor(sessionCookies: string) {
+    this.sessionCookies = sessionCookies;
+    this.logger = new Logger('PlaywrightFallback');
+    this.humanization = new HumanizationProfile();
+  }
+
+  /**
+   * Initialize Playwright browser with anti-detection settings
+   */
+  async initialize(): Promise<void> {
+    try {
+      this.logger.info('Initializing Playwright fallback');
+
+      // Launch browser with anti-detection settings
+      this.browser = await chromium.launch({
+        headless: false, // Run in headful mode for better anti-detection
+        args: [
+          '--disable-blink-features=AutomationControlled',
+          '--disable-features=IsolateOrigins,site-per-process',
+          '--disable-web-security',
+          '--disable-features=CrossSiteDocumentBlockingIfIsolating',
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote'
+        ]
+      });
+
+      // Create context with anti-detection measures
+      const viewport = this.humanization.getRandomViewport();
+      const userAgent = this.humanization.getRandomUserAgent();
+
+      this.context = await this.browser.newContext({
+        viewport,
+        userAgent,
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        permissions: ['geolocation', 'notifications'],
+        deviceScaleFactor: 1,
+        hasTouch: false,
+        colorScheme: 'light',
+        extraHTTPHeaders: {
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+
+      // Remove automation indicators
+      await this.context.addInitScript(() => {
+        // Override navigator.webdriver
+        Object.defineProperty((navigator as any), 'webdriver', {
+          get: () => undefined
+        });
+
+        // Override chrome automation properties
+        if ((window as any).chrome) {
+          (window as any).chrome.runtime = undefined;
+        }
+
+        // Override plugins to look more realistic
+        Object.defineProperty((navigator as any), 'plugins', {
+          get: () => [1, 2, 3, 4, 5]
+        });
+
+        // Override languages
+        Object.defineProperty((navigator as any), 'languages', {
+          get: () => ['en-US', 'en']
+        });
+      });
+
+      this.page = await this.context.newPage();
+
+      // Navigate to Threads
+      await this.page.goto('https://www.threads.net', {
+        waitUntil: 'networkidle',
+        timeout: 30000
+      });
+
+      // Inject cookies
+      await this.injectCookies();
+
+      // Validate session
+      const isValid = await this.validateSession();
+      if (!isValid) {
+        throw new Error('Fallback session validation failed');
+      }
+
+      this.active = true;
+      this.logger.info('Playwright fallback ready');
+
+    } catch (error) {
+      this.logger.error('Failed to initialize Playwright fallback', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search Threads and extract posts using direct selectors
+   */
+  async searchAndExtract(keywords: string[], maxResults: number = 50): Promise<SearchResult> {
+    try {
+      if (!this.active) {
+        await this.initialize();
+      }
+
+      const searchQuery = keywords.join(' ');
+      this.logger.info(`Fallback search for: ${searchQuery}`);
+
+      // Human-like delay
+      await this.humanization.randomDelay();
+
+      // Find and click search input
+      const searchInput = await this.page!.waitForSelector(this.selectors.searchInput, {
+        timeout: 10000
+      });
+
+      await searchInput.click();
+      await this.humanization.humanType(this.page!, this.selectors.searchInput, searchQuery);
+
+      // Submit search
+      await this.page!.keyboard.press('Enter');
+
+      // Wait for results
+      await this.page!.waitForSelector(this.selectors.postContainer, {
+        timeout: 15000
+      });
+
+      await this.humanization.simulateReading();
+
+      // Extract posts
+      const posts = await this.extractPosts(maxResults);
+
+      this.logger.info(`Fallback extracted ${posts.length} posts`);
+
+      return {
+        posts,
+        nextPageAvailable: await this.hasMoreResults(),
+        totalFound: posts.length
+      };
+
+    } catch (error) {
+      this.logger.error('Fallback search failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Navigate to specific post URL
+   */
+  async navigateToPost(postUrl: string): Promise<ExtractedPost> {
+    try {
+      if (!this.active) {
+        await this.initialize();
+      }
+
+      this.logger.info(`Fallback navigating to: ${postUrl}`);
+
+      await this.humanization.randomDelay();
+
+      await this.page!.goto(postUrl, {
+        waitUntil: 'networkidle',
+        timeout: 30000
+      });
+
+      await this.humanization.simulateReading();
+
+      // Extract single post data
+      const post = await this.extractSinglePost();
+
+      return post;
+
+    } catch (error) {
+      this.logger.error('Fallback navigation failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate session using DOM checks
+   */
+  async validateSession(): Promise<boolean> {
+    try {
+      // Check for logged-in indicators
+      const profileMenu = await this.page!.$(this.selectors.profileMenu);
+      const composeButton = await this.page!.$(this.selectors.composeButton);
+
+      const isValid = !!(profileMenu || composeButton);
+
+      if (isValid) {
+        this.logger.info('Fallback session validated');
+      } else {
+        this.logger.warn('Fallback session invalid');
+      }
+
+      return isValid;
+
+    } catch (error) {
+      this.logger.error('Fallback validation error', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if fallback is active
+   */
+  isActive(): boolean {
+    return this.active;
+  }
+
+  /**
+   * Clean up resources
+   */
+  async cleanup(): Promise<void> {
+    try {
+      if (this.page) {
+        await this.page.close();
+      }
+      if (this.context) {
+        await this.context.close();
+      }
+      if (this.browser) {
+        await this.browser.close();
+      }
+
+      this.page = null;
+      this.context = null;
+      this.browser = null;
+      this.active = false;
+
+      this.logger.info('Fallback cleanup complete');
+    } catch (error) {
+      this.logger.error('Fallback cleanup error', error);
+    }
+  }
+
+  /**
+   * Private helper methods
+   */
+
+  private async injectCookies(): Promise<void> {
+    try {
+      const cookies = JSON.parse(this.sessionCookies);
+
+      const formattedCookies = cookies.map((cookie: any) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain || '.threads.net',
+        path: cookie.path || '/',
+        expires: cookie.expires || undefined,
+        httpOnly: cookie.httpOnly || false,
+        secure: cookie.secure !== false,
+        sameSite: cookie.sameSite || 'Lax'
+      }));
+
+      await this.context!.addCookies(formattedCookies);
+      await this.page!.reload();
+
+      this.logger.info('Fallback cookies injected');
+    } catch (error) {
+      this.logger.error('Failed to inject cookies in fallback', error);
+      throw error;
+    }
+  }
+
+  private async extractPosts(maxResults: number): Promise<ExtractedPost[]> {
+    const posts: ExtractedPost[] = [];
+
+    try {
+      const postElements = await this.page!.$$(this.selectors.postContainer);
+      const limit = Math.min(postElements.length, maxResults);
+
+      for (let i = 0; i < limit; i++) {
+        const element = postElements[i];
+        
+        try {
+          const post = await this.extractPostFromElement(element);
+          if (post) {
+            posts.push(post);
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to extract post ${i}`, error);
+        }
+      }
+
+      // Load more if needed
+      if (posts.length < maxResults && await this.hasMoreResults()) {
+        await this.loadMorePosts();
+        const additionalPosts = await this.extractPosts(maxResults - posts.length);
+        posts.push(...additionalPosts);
+      }
+
+    } catch (error) {
+      this.logger.error('Post extraction failed', error);
+    }
+
+    return posts;
+  }
+
+  private async extractPostFromElement(element: any): Promise<ExtractedPost | null> {
+    try {
+      // Extract author
+      const authorElement = await element.$(this.selectors.postAuthor);
+      const author = await authorElement?.textContent() || 'Unknown';
+      const authorHandle = await authorElement?.getAttribute('href') || '';
+
+      // Extract content
+      const contentElement = await element.$(this.selectors.postContent);
+      const content = await contentElement?.textContent() || '';
+
+      // Extract metrics
+      const likes = await this.extractNumber(element, this.selectors.likeCount);
+      const replies = await this.extractNumber(element, this.selectors.replyCount);
+      const reposts = await this.extractNumber(element, this.selectors.repostCount);
+
+      // Extract timestamp
+      const timestampElement = await element.$(this.selectors.timestamp);
+      const timestamp = await timestampElement?.getAttribute('datetime') || 
+                       await timestampElement?.textContent() || 
+                       new Date().toISOString();
+
+      // Extract URL
+      const linkElement = await element.$('a[href*="/post/"]');
+      const threadUrl = await linkElement?.getAttribute('href') || '';
+      const fullUrl = threadUrl.startsWith('http') ? threadUrl : `https://www.threads.net${threadUrl}`;
+
+      // Check for questions
+      const hasQuestion = content.includes('?') || 
+                         /\b(how|what|when|where|why|who|which|could|would|should|can)\b/i.test(content);
+
+      // Extract hashtags and mentions
+      const hashtags = content.match(/#\w+/g) || [];
+      const mentions = content.match(/@\w+/g) || [];
+
+      return {
+        url: fullUrl,
+        postId: this.extractPostId(fullUrl),
+        authorHandle: authorHandle.split('/').pop() || author,
+        content: {
+          text: content,
+          hashtags: hashtags.map(h => h.replace('#', '')),
+          mentions: mentions.map(m => m.replace('@', '')),
+          links: [] // Extract links if needed
+        },
+        metrics: {
+          replies,
+          likes,
+          reposts,
+          timestampRaw: timestamp,
+          timestampParsed: new Date(timestamp)
+        },
+        extractedAt: new Date(),
+        extractionVersion: '1.0.0'
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to extract post from element', error);
+      return null;
+    }
+  }
+
+  private async extractSinglePost(): Promise<ExtractedPost> {
+    const postElement = await this.page!.waitForSelector(this.selectors.postContainer);
+    const post = await this.extractPostFromElement(postElement);
+    
+    if (!post) {
+      throw new Error('Failed to extract post data');
+    }
+
+    return post;
+  }
+
+  private async extractNumber(element: any, selector: string): Promise<number> {
+    try {
+      const textElement = await element.$(selector);
+      const text = await textElement?.textContent() || '0';
+      
+      // Parse various formats: "1.2K", "1,234", "1234"
+      const cleanText = text.replace(/[^\d.kKmM]/g, '');
+      
+      if (cleanText.includes('k') || cleanText.includes('K')) {
+        return Math.round(parseFloat(cleanText) * 1000);
+      } else if (cleanText.includes('m') || cleanText.includes('M')) {
+        return Math.round(parseFloat(cleanText) * 1000000);
+      }
+      
+      return parseInt(cleanText) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private extractPostId(url: string): string {
+    const match = url.match(/\/post\/([^\/\?]+)/);
+    return match?.[1] || `post_${Date.now()}`;
+  }
+
+  private async hasMoreResults(): Promise<boolean> {
+    const loadMoreButton = await this.page!.$(this.selectors.loadMoreButton);
+    return !!loadMoreButton;
+  }
+
+  private async loadMorePosts(): Promise<void> {
+    try {
+      const loadMoreButton = await this.page!.$(this.selectors.loadMoreButton);
+      
+      if (loadMoreButton) {
+        await loadMoreButton.click();
+        await this.humanization.simulateReading();
+        await this.page!.waitForSelector(this.selectors.postContainer, {
+          timeout: 10000
+        });
+      } else {
+        // Scroll to load more
+        await this.humanization.naturalScroll(this.page!);
+      }
+    } catch (error) {
+      this.logger.warn('Could not load more posts', error);
+    }
+  }
+}

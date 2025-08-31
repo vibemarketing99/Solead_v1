@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solead - Lead Discovery Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .job-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select, textarea {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status {
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .status.info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 2px solid #90caf9;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 2px solid #81c784;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 2px solid #ef5350;
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .lead-card {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .lead-card.hot {
+            border-left-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        
+        .lead-card.medium {
+            border-left-color: #ffd93d;
+            background: #fffdf5;
+        }
+        
+        .lead-score {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .lead-score.hot {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .lead-score.medium {
+            background: #ffd93d;
+            color: #333;
+        }
+        
+        .lead-score.cold {
+            background: #74c0fc;
+            color: white;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Solead</h1>
+            <p class="subtitle">AI-Powered Lead Discovery for Threads</p>
+        </header>
+
+        <div class="card">
+            <h2>Start New Discovery Job</h2>
+            <form class="job-form" id="jobForm">
+                <div class="form-group">
+                    <label for="keywords">Search Keywords</label>
+                    <textarea 
+                        id="keywords" 
+                        name="keywords"
+                        placeholder="Enter keywords separated by commas&#10;Example: automation tools, workflow software, productivity apps"
+                        required
+                    >automation tools, workflow software</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="category">Business Category</label>
+                    <select id="category" name="category">
+                        <option value="saas">SaaS & Automation</option>
+                        <option value="marketing">Marketing & Growth</option>
+                        <option value="ai">AI & Technology</option>
+                        <option value="business">Business Operations</option>
+                        <option value="all" selected>All Categories</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="maxResults">Maximum Results</label>
+                    <input 
+                        type="number" 
+                        id="maxResults" 
+                        name="maxResults" 
+                        value="20" 
+                        min="10" 
+                        max="100"
+                    />
+                </div>
+
+                <button type="submit" class="btn" id="startBtn">
+                    🔍 Start Lead Discovery
+                </button>
+            </form>
+
+            <div class="status info" id="status"></div>
+        </div>
+
+        <div class="card results" id="results">
+            <h2>Discovery Results</h2>
+            <div class="stats" id="stats"></div>
+            <h3>Discovered Leads</h3>
+            <div id="leadsList"></div>
+        </div>
+
+        <div class="card">
+            <h2>⚠️ Important Notes</h2>
+            <ul style="line-height: 1.8; color: #666;">
+                <li><strong>Current Status:</strong> Demo mode - extracts public content only</li>
+                <li><strong>Authentication:</strong> Full lead discovery requires Threads login (not yet implemented)</li>
+                <li><strong>Performance:</strong> Each search takes 30-60 seconds</li>
+                <li><strong>Best Results:</strong> Use specific business-related keywords</li>
+                <li><strong>Live Monitoring:</strong> Watch the browser automation at the BrowserBase URL shown in console</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Note: In demo mode, this simulates the job execution
+        // In production, this would call your actual API endpoints
+        
+        document.getElementById('jobForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim());
+            const category = document.getElementById('category').value;
+            const maxResults = document.getElementById('maxResults').value;
+            
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            const startBtn = document.getElementById('startBtn');
+            
+            // Show status
+            statusDiv.className = 'status info';
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = `
+                <strong>🔄 Job Started!</strong><br>
+                Searching for: ${keywords.join(', ')}<br>
+                <em>Note: To see real results, run the command shown below in your terminal</em>
+            `;
+            
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Running...';
+            
+            // Show command to run
+            const command = `npx tsx scripts/start-job.ts "${keywords.join('" "')}"`;
+            
+            setTimeout(() => {
+                statusDiv.className = 'status success';
+                statusDiv.innerHTML = `
+                    <strong>✅ Ready to Execute!</strong><br>
+                    Run this command in your terminal (from the solead directory):<br>
+                    <code style="background: #333; color: #0f0; padding: 10px; display: block; margin-top: 10px; border-radius: 5px; font-family: monospace;">
+                        ${command}
+                    </code>
+                    <br>
+                    This will start a real browser session and discover leads from Threads.
+                `;
+                
+                // Simulate some results for demo
+                const mockResults = {
+                    total: 15,
+                    hot: 3,
+                    medium: 7,
+                    cold: 5,
+                    leads: [
+                        {
+                            author: 'businessowner123',
+                            text: 'Looking for automation tools to help streamline our workflow. Any recommendations?',
+                            score: 87,
+                            category: 'hot'
+                        },
+                        {
+                            author: 'startup_founder',
+                            text: 'We need better productivity software for our growing team. What are you using?',
+                            score: 75,
+                            category: 'hot'
+                        },
+                        {
+                            author: 'marketing_pro',
+                            text: 'Exploring new tools for social media automation and scheduling.',
+                            score: 65,
+                            category: 'medium'
+                        }
+                    ]
+                };
+                
+                // Show results
+                resultsDiv.style.display = 'block';
+                
+                document.getElementById('stats').innerHTML = `
+                    <div class="stat-box">
+                        <div class="stat-number">${mockResults.total}</div>
+                        <div class="stat-label">Total Leads</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">${mockResults.hot}</div>
+                        <div class="stat-label">🔥 Hot Leads</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">${mockResults.medium}</div>
+                        <div class="stat-label">🟡 Medium</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-number">${mockResults.cold}</div>
+                        <div class="stat-label">❄️ Cold</div>
+                    </div>
+                `;
+                
+                document.getElementById('leadsList').innerHTML = mockResults.leads.map(lead => `
+                    <div class="lead-card ${lead.category}">
+                        <strong>@${lead.author}</strong>
+                        <span class="lead-score ${lead.category}">${lead.score}%</span>
+                        <p style="margin-top: 10px; color: #333;">${lead.text}</p>
+                        <small style="color: #999;">Category: ${lead.category.toUpperCase()} | Ready for outreach</small>
+                    </div>
+                `).join('');
+                
+                startBtn.disabled = false;
+                startBtn.textContent = '🔍 Start Lead Discovery';
+                
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

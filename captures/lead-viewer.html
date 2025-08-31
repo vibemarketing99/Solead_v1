@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lead Capture Viewer - With Thread Links</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: white;
+      text-align: center;
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.9);
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 30px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .stat-value {
+      font-size: 36px;
+      font-weight: bold;
+      color: #333;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .leads-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+      gap: 20px;
+    }
+    .lead-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+    .lead-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    .lead-header {
+      padding: 20px;
+      background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+      border-bottom: 1px solid #ddd;
+    }
+    .lead-score {
+      float: right;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      color: white;
+    }
+    .score-hot { background: #dc2626; }
+    .score-warm { background: #f59e0b; }
+    .lead-author {
+      font-weight: bold;
+      color: #333;
+      font-size: 16px;
+    }
+    .lead-handle {
+      color: #666;
+      font-size: 14px;
+    }
+    .lead-content {
+      padding: 20px;
+    }
+    .lead-text {
+      color: #444;
+      line-height: 1.5;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    .lead-metrics {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      color: #666;
+    }
+    .lead-url {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #333;
+      word-break: break-all;
+      margin-bottom: 15px;
+    }
+    .lead-url a {
+      color: #3b82f6;
+      text-decoration: none;
+    }
+    .lead-url a:hover {
+      text-decoration: underline;
+    }
+    .lead-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #5a67d8;
+    }
+    .btn-secondary {
+      background: white;
+      color: #667eea;
+      border: 1px solid #667eea;
+    }
+    .btn-secondary:hover {
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Lead Capture Viewer</h1>
+    <div class="subtitle">All captured leads with direct links to original threads</div>
+    
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Total Leads</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">2</div>
+        <div class="stat-label">Hot Leads 🔥</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">1</div>
+        <div class="stat-label">Warm Leads ♨️</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">3</div>
+        <div class="stat-label">Thread URLs Captured</div>
+      </div>
+    </div>
+    
+    <div class="leads-grid">
+      
+        <div class="lead-card" onclick="window.open('lead-screenshots/lead-lead-001-screenshot.html', '_blank')">
+          <div class="lead-header">
+            <span class="lead-score score-hot">0.92 HOT</span>
+            <div class="lead-author">Alex Chen</div>
+            <div class="lead-handle">@startup_founder</div>
+          </div>
+          <div class="lead-content">
+            <div class="lead-text">We desperately need a solution to automate our social media lead generation. Currently spending 20+ hours/week manually searching. Any recommendations for tools that actually work?</div>
+            <div class="lead-metrics">
+              <span>❤️ 156</span>
+              <span>💬 23</span>
+              <span>🔁 12</span>
+              <span>👁️ 2,341</span>
+            </div>
+            <div class="lead-url">
+              🔗 <a href="https://threads.net/@startup_founder/post/C123abc456" target="_blank">https://threads.net/@startup_founder/post/C123abc456</a>
+            </div>
+            <div class="lead-actions">
+              <button class="btn btn-primary" onclick="event.stopPropagation(); window.open('https://threads.net/@startup_founder/post/C123abc456', '_blank')">
+                Open Thread
+              </button>
+              <button class="btn btn-secondary" onclick="event.stopPropagation(); window.open('lead-screenshots/lead-lead-001-screenshot.html', '_blank')">
+                View Screenshot
+              </button>
+            </div>
+          </div>
+        </div>
+      
+        <div class="lead-card" onclick="window.open('lead-screenshots/lead-lead-002-screenshot.html', '_blank')">
+          <div class="lead-header">
+            <span class="lead-score score-warm">0.87 WARM</span>
+            <div class="lead-author">Sarah Johnson</div>
+            <div class="lead-handle">@marketing_director</div>
+          </div>
+          <div class="lead-content">
+            <div class="lead-text">Looking for workflow automation experts. Our team is drowning in repetitive tasks. Need someone who can help us streamline our processes ASAP. Budget approved.</div>
+            <div class="lead-metrics">
+              <span>❤️ 89</span>
+              <span>💬 15</span>
+              <span>🔁 5</span>
+              <span>👁️ 1,523</span>
+            </div>
+            <div class="lead-url">
+              🔗 <a href="https://threads.net/@marketing_director/post/C456def789" target="_blank">https://threads.net/@marketing_director/post/C456def789</a>
+            </div>
+            <div class="lead-actions">
+              <button class="btn btn-primary" onclick="event.stopPropagation(); window.open('https://threads.net/@marketing_director/post/C456def789', '_blank')">
+                Open Thread
+              </button>
+              <button class="btn btn-secondary" onclick="event.stopPropagation(); window.open('lead-screenshots/lead-lead-002-screenshot.html', '_blank')">
+                View Screenshot
+              </button>
+            </div>
+          </div>
+        </div>
+      
+        <div class="lead-card" onclick="window.open('lead-screenshots/lead-lead-003-screenshot.html', '_blank')">
+          <div class="lead-header">
+            <span class="lead-score score-hot">0.95 HOT</span>
+            <div class="lead-author">Mike Rodriguez</div>
+            <div class="lead-handle">@tech_consultant</div>
+          </div>
+          <div class="lead-content">
+            <div class="lead-text">Just lost 3 days of productivity due to manual data entry. There has to be a better way to handle lead qualification and scoring. What are you all using?</div>
+            <div class="lead-metrics">
+              <span>❤️ 203</span>
+              <span>💬 31</span>
+              <span>🔁 18</span>
+              <span>👁️ 4,567</span>
+            </div>
+            <div class="lead-url">
+              🔗 <a href="https://threads.net/@tech_consultant/post/C789ghi012" target="_blank">https://threads.net/@tech_consultant/post/C789ghi012</a>
+            </div>
+            <div class="lead-actions">
+              <button class="btn btn-primary" onclick="event.stopPropagation(); window.open('https://threads.net/@tech_consultant/post/C789ghi012', '_blank')">
+                Open Thread
+              </button>
+              <button class="btn btn-secondary" onclick="event.stopPropagation(); window.open('lead-screenshots/lead-lead-003-screenshot.html', '_blank')">
+                View Screenshot
+              </button>
+            </div>
+          </div>
+        </div>
+      
+    </div>
+  </div>
+</body>
+</html>
+  

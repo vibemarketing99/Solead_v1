@@ -140,4 +140,50 @@ curl --request DELETE \
 - Rate limits and key rotation: https://docs.rapidapi.com/docs/keys-and-key-rotation
 - Test interactively via RapidAPI Playground: https://rapidapi.com/Lundehund/api/threads-api4/playground/apiendpoint_7181af83-476a-4dea-9e03-a8c7f2cf36a7
 
+### Quick start (Node.js)
+
+1) Create `.env` in `solead/`:
+
+```
+RAPIDAPI_KEY=your-key
+RAPIDAPI_HOST=threads-api4.p.rapidapi.com
+```
+
+2) Example request with `node-fetch`/native fetch (Node 18+):
+
+```javascript
+// scripts/threadsApiTest.mjs
+import 'dotenv/config';
+
+const host = process.env.RAPIDAPI_HOST;
+const key = process.env.RAPIDAPI_KEY;
+
+if (!host || !key) {
+  console.error('Missing RAPIDAPI_HOST or RAPIDAPI_KEY');
+  process.exit(1);
+}
+
+// Replace with a real endpoint and params
+const path = process.argv[2] || '/thread/{thread_id}';
+const url = `https://${host}${path}`;
+
+const res = await fetch(url, {
+  method: 'GET',
+  headers: {
+    'X-RapidAPI-Key': key,
+    'X-RapidAPI-Host': host
+  }
+});
+
+console.log('Status:', res.status, res.statusText);
+const text = await res.text();
+console.log(text);
+```
+
+Run:
+
+```bash
+node scripts/threadsApiTest.mjs /thread/{thread_id}
+```
+
 

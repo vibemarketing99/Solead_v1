@@ -1,0 +1,622 @@
+import { Repository } from 'typeorm';
+import { Task } from '../database/entities/Task.entity';
+import { Agent } from '../database/entities/Agent.entity';
+import { Lead } from '../database/entities/Lead.entity';
+import { Session } from '../database/entities/Session.entity';
+import { Logger } from '../utils/Logger';
+import { SessionManager } from '../services/SessionManager';
+import { ExtractedPost } from '../types/models';
+
+/**
+ * Worker instance status
+ */
+export enum WorkerStatus {
+  IDLE = 'idle',
+  BUSY = 'busy',
+  ERROR = 'error',
+  TERMINATED = 'terminated'
+}
+
+/**
+ * Automation interface for testing
+ * Will be replaced with real StagehandAutomation later
+ */
+export interface IAutomation {
+  initialize(): Promise<void>;
+  searchThreads(keywords: string[]): Promise<ExtractedPost[]>;
+  browseWithHumanPattern(duration: number): Promise<void>;
+  cleanup(): Promise<void>;
+  isActive(): boolean;
+}
+
+/**
+ * Individual worker instance in the pool
+ */
+export class WorkerInstance {
+  public readonly id: string;
+  public status: WorkerStatus = WorkerStatus.IDLE;
+  public currentTask: Task | null = null;
+  public lastActivity: Date = new Date();
+  public completedTasks: number = 0;
+  public failedTasks: number = 0;
+  
+  private automation: IAutomation | null = null;
+  private logger: Logger;
+
+  constructor(id: string) {
+    this.id = id;
+    this.logger = new Logger(`Worker-${id}`);
+  }
+
+  async initialize(automation: IAutomation): Promise<void> {
+    try {
+      this.automation = automation;
+      await automation.initialize();
+      this.status = WorkerStatus.IDLE;
+      this.logger.info('Worker initialized');
+    } catch (error) {
+      this.status = WorkerStatus.ERROR;
+      this.logger.error('Failed to initialize worker', error);
+      throw error;
+    }
+  }
+
+  async execute(task: Task, keywords: string[]): Promise<ExtractedPost[]> {
+    if (this.status !== WorkerStatus.IDLE) {
+      throw new Error(`Worker ${this.id} is not idle (status: ${this.status})`);
+    }
+
+    this.status = WorkerStatus.BUSY;
+    this.currentTask = task;
+    this.lastActivity = new Date();
+
+    try {
+      if (!this.automation) {
+        throw new Error('Automation not initialized');
+      }
+
+      this.logger.info(`Executing task ${task.id} with keywords: ${keywords.join(', ')}`);
+      
+      // Search for posts
+      const posts = await this.automation.searchThreads(keywords);
+      
+      // Add human-like browsing
+      await this.automation.browseWithHumanPattern(5000 + Math.random() * 10000);
+      
+      this.completedTasks++;
+      this.status = WorkerStatus.IDLE;
+      this.currentTask = null;
+      
+      this.logger.info(`Task completed, found ${posts.length} posts`);
+      return posts;
+      
+    } catch (error) {
+      this.failedTasks++;
+      this.status = WorkerStatus.ERROR;
+      this.logger.error(`Task ${task.id} failed`, error);
+      throw error;
+    } finally {
+      this.lastActivity = new Date();
+    }
+  }
+
+  async terminate(): Promise<void> {
+    try {
+      if (this.automation) {
+        await this.automation.cleanup();
+      }
+      this.status = WorkerStatus.TERMINATED;
+      this.logger.info('Worker terminated');
+    } catch (error) {
+      this.logger.error('Error during termination', error);
+    }
+  }
+
+  isAvailable(): boolean {
+    return this.status === WorkerStatus.IDLE;
+  }
+
+  getStats() {
+    return {
+      id: this.id,
+      status: this.status,
+      currentTask: this.currentTask?.id || null,
+      lastActivity: this.lastActivity,
+      completedTasks: this.completedTasks,
+      failedTasks: this.failedTasks,
+      successRate: this.completedTasks > 0 
+        ? (this.completedTasks / (this.completedTasks + this.failedTasks)) 
+        : 0
+    };
+  }
+}
+
+/**
+ * StagehandWorker manages a pool of automation workers
+ * for concurrent lead discovery operations
+ */
+export class StagehandWorker {
+  private pool: WorkerInstance[] = [];
+  private maxConcurrent: number;
+  private logger: Logger;
+  private taskRepo: Repository<Task>;
+  private agentRepo: Repository<Agent>;
+  private leadRepo: Repository<Lead>;
+  private sessionManager: SessionManager;
+  private isRunning: boolean = false;
+  private automationFactory: () => IAutomation;
+
+  // Performance metrics
+  private metrics = {
+    tasksProcessed: 0,
+    tasksSucceeded: 0,
+    tasksFailed: 0,
+    leadsDiscovered: 0,
+    averageTaskTime: 0,
+    poolUtilization: 0
+  };
+
+  constructor(
+    taskRepo: Repository<Task>,
+    agentRepo: Repository<Agent>,
+    leadRepo: Repository<Lead>,
+    sessionManager: SessionManager,
+    automationFactory: () => IAutomation,
+    maxConcurrent: number = 5
+  ) {
+    this.taskRepo = taskRepo;
+    this.agentRepo = agentRepo;
+    this.leadRepo = leadRepo;
+    this.sessionManager = sessionManager;
+    this.automationFactory = automationFactory;
+    this.maxConcurrent = maxConcurrent;
+    this.logger = new Logger('StagehandWorker');
+  }
+
+  /**
+   * Initialize the worker pool
+   */
+  async initialize(): Promise<void> {
+    this.logger.info(`Initializing worker pool with ${this.maxConcurrent} workers`);
+    
+    for (let i = 0; i < this.maxConcurrent; i++) {
+      const worker = new WorkerInstance(`worker-${i + 1}`);
+      const automation = this.automationFactory();
+      await worker.initialize(automation);
+      this.pool.push(worker);
+    }
+    
+    this.isRunning = true;
+    this.logger.info('Worker pool initialized successfully');
+  }
+
+  /**
+   * Process a lead discovery task
+   */
+  async processLeadDiscovery(agentId: string, keywords: string[]): Promise<void> {
+    const startTime = Date.now();
+    
+    // Get available worker
+    const worker = await this.getAvailableWorker();
+    if (!worker) {
+      throw new Error('No available workers in pool');
+    }
+
+    // Create task record
+    const task = this.taskRepo.create({
+      agentId,
+      type: 'lead_discovery',
+      status: 'pending',
+      data: { keywords },
+      attempts: 0,
+      maxAttempts: 3
+    });
+    
+    const savedTask = await this.taskRepo.save(task);
+    
+    try {
+      // Update task status
+      savedTask.status = 'processing';
+      savedTask.startedAt = new Date();
+      await this.taskRepo.save(savedTask);
+      
+      // Execute with worker
+      const posts = await worker.execute(savedTask, keywords);
+      
+      // Process discovered posts into leads
+      const leads = await this.processPostsToLeads(posts, agentId);
+      
+      // Update task as completed
+      savedTask.status = 'completed';
+      savedTask.completedAt = new Date();
+      savedTask.result = {
+        postsFound: posts.length,
+        leadsCreated: leads.length
+      };
+      await this.taskRepo.save(savedTask);
+      
+      // Update metrics
+      this.metrics.tasksProcessed++;
+      this.metrics.tasksSucceeded++;
+      this.metrics.leadsDiscovered += leads.length;
+      this.updateAverageTaskTime(Date.now() - startTime);
+      
+      this.logger.info(`Task ${savedTask.id} completed: ${leads.length} leads discovered`);
+      
+    } catch (error) {
+      // Handle task failure
+      savedTask.status = 'failed';
+      savedTask.failedAt = new Date();
+      savedTask.error = error instanceof Error ? error.message : 'Unknown error';
+      savedTask.attempts++;
+      
+      if (savedTask.attempts < savedTask.maxAttempts) {
+        savedTask.status = 'pending'; // Retry
+        savedTask.nextRetryAt = new Date(Date.now() + 60000 * savedTask.attempts); // Exponential backoff
+      }
+      
+      await this.taskRepo.save(savedTask);
+      
+      this.metrics.tasksFailed++;
+      this.logger.error(`Task ${savedTask.id} failed`, error);
+      
+      throw error;
+    } finally {
+      this.updatePoolUtilization();
+    }
+  }
+
+  /**
+   * Execute task with retry logic
+   */
+  async executeWithRetry(task: Task): Promise<void> {
+    const maxRetries = task.maxAttempts || 3;
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        task.attempts = attempt;
+        
+        // Get agent for task
+        const agent = await this.agentRepo.findOne({
+          where: { id: task.agentId }
+        });
+        
+        if (!agent) {
+          throw new Error(`Agent ${task.agentId} not found`);
+        }
+        
+        // Process based on task type
+        if (task.type === 'lead_discovery') {
+          await this.processLeadDiscovery(agent.id, agent.keywords);
+          return; // Success
+        } else {
+          throw new Error(`Unknown task type: ${task.type}`);
+        }
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        this.logger.warn(`Task ${task.id} attempt ${attempt} failed: ${lastError.message}`);
+        
+        if (attempt < maxRetries) {
+          // Wait before retry (exponential backoff)
+          const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    // All retries failed
+    if (lastError) {
+      throw lastError;
+    }
+  }
+
+  /**
+   * Convert extracted posts to leads
+   */
+  private async processPostsToLeads(posts: ExtractedPost[], agentId: string): Promise<Lead[]> {
+    const leads: Lead[] = [];
+    
+    // Get agent for relation
+    const agent = await this.agentRepo.findOne({
+      where: { id: agentId }
+    });
+    
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not found`);
+    }
+    
+    for (const post of posts) {
+      // Check if lead already exists
+      const existingLead = await this.leadRepo.findOne({
+        where: {
+          postUrl: post.url,
+          agentId
+        }
+      });
+      
+      if (existingLead) {
+        this.logger.debug(`Lead already exists for URL: ${post.url}`);
+        continue;
+      }
+      
+      // Categorize lead (Lead entity uses 'hot' | 'medium' | 'cold')
+      const category = this.categorizePostForLead(post);
+      
+      // Calculate score and reasons
+      const score = this.calculateMatchScore(post);
+      const reasons = this.generateLeadReasons(post, score);
+      
+      // Create new lead
+      const lead = this.leadRepo.create({
+        agentId,
+        agent,
+        postUrl: post.url,
+        postId: post.postId,
+        authorHandle: post.authorHandle,
+        authorFollowers: post.authorFollowers,
+        content: {
+          text: post.content.text,
+          hashtags: post.content.hashtags,
+          mentions: post.content.mentions,
+          links: post.content.links,
+          hasQuestion: post.content.text.includes('?')
+        },
+        metrics: {
+          replies: post.metrics.replies,
+          likes: post.metrics.likes,
+          reposts: post.metrics.reposts,
+          timestampRaw: post.metrics.timestampRaw,
+          timestampParsed: post.metrics.timestampParsed
+        },
+        score,
+        category,
+        reasons,
+        capturedAt: post.extractedAt
+      });
+      
+      const savedLead = await this.leadRepo.save(lead);
+      leads.push(savedLead);
+    }
+    
+    this.logger.info(`Created ${leads.length} new leads from ${posts.length} posts`);
+    return leads;
+  }
+
+  /**
+   * Categorize a post into lead temperature
+   */
+  private categorizePostForLead(post: ExtractedPost): 'hot' | 'medium' | 'cold' {
+    const content = post.content.text.toLowerCase();
+    const totalEngagement = post.metrics.replies + post.metrics.likes + post.metrics.reposts;
+    
+    // Hot indicators - high intent, problems, immediate need
+    const hotKeywords = ['struggling', 'urgent', 'need help', 'looking for', 'recommend', 'frustrated', 'asap'];
+    const hasHotKeywords = hotKeywords.some(keyword => content.includes(keyword));
+    const hasQuestion = post.content.text.includes('?');
+    const highEngagement = totalEngagement > 100;
+    
+    if ((hasHotKeywords && hasQuestion) || (hasHotKeywords && highEngagement)) {
+      return 'hot';
+    }
+    
+    // Medium indicators - interest, research phase
+    const mediumKeywords = ['considering', 'comparing', 'researching', 'curious', 'wondering', 'thinking about'];
+    const hasMediumKeywords = mediumKeywords.some(keyword => content.includes(keyword));
+    const mediumEngagement = totalEngagement > 30;
+    
+    if (hasMediumKeywords || (hasQuestion && mediumEngagement)) {
+      return 'medium';
+    }
+    
+    // Default to cold
+    return 'cold';
+  }
+  
+  /**
+   * Generate reasons for lead categorization
+   */
+  private generateLeadReasons(post: ExtractedPost, score: number): string[] {
+    const reasons: string[] = [];
+    const content = post.content.text.toLowerCase();
+    
+    // Check for question
+    if (post.content.text.includes('?')) {
+      reasons.push('Contains question');
+    }
+    
+    // Check engagement level
+    const totalEngagement = post.metrics.replies + post.metrics.likes + post.metrics.reposts;
+    if (totalEngagement > 100) {
+      reasons.push('High engagement');
+    } else if (totalEngagement > 30) {
+      reasons.push('Moderate engagement');
+    }
+    
+    // Check for problem indicators
+    const problemKeywords = ['struggling', 'issue', 'problem', 'frustrat', 'difficult', 'help', 'stuck'];
+    if (problemKeywords.some(keyword => content.includes(keyword))) {
+      reasons.push('Problem indicator');
+    }
+    
+    // Check for buying intent
+    const intentKeywords = ['looking for', 'need', 'recommend', 'suggest', 'best', 'which'];
+    if (intentKeywords.some(keyword => content.includes(keyword))) {
+      reasons.push('Buying intent');
+    }
+    
+    // Check score
+    if (score >= 0.8) {
+      reasons.push('High match score');
+    } else if (score >= 0.6) {
+      reasons.push('Good match score');
+    }
+    
+    // Default reason if none found
+    if (reasons.length === 0) {
+      reasons.push('Keyword match');
+    }
+    
+    return reasons;
+  }
+
+  /**
+   * Calculate match score for a post
+   */
+  private calculateMatchScore(post: ExtractedPost): number {
+    let score = 0.5; // Base score
+    
+    // Boost for questions
+    if (post.content.text.includes('?')) {
+      score += 0.2;
+    }
+    
+    // Boost for high engagement
+    const totalEngagement = post.metrics.replies + post.metrics.likes + post.metrics.reposts;
+    if (totalEngagement > 100) {
+      score += 0.2;
+    } else if (totalEngagement > 50) {
+      score += 0.1;
+    }
+    
+    // Boost for relevant keywords in content
+    const relevantKeywords = ['automation', 'workflow', 'productivity', 'efficiency'];
+    const keywordMatches = relevantKeywords.filter(kw => 
+      post.content.text.toLowerCase().includes(kw)
+    ).length;
+    score += keywordMatches * 0.1;
+    
+    return Math.min(score, 1.0); // Cap at 1.0
+  }
+
+  /**
+   * Get an available worker from the pool
+   */
+  private async getAvailableWorker(timeout: number = 30000): Promise<WorkerInstance | null> {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeout) {
+      // Find available worker
+      const worker = this.pool.find(w => w.isAvailable());
+      
+      if (worker) {
+        return worker;
+      }
+      
+      // Wait a bit before checking again
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    this.logger.warn('No available workers after timeout');
+    return null;
+  }
+
+  /**
+   * Update average task time metric
+   */
+  private updateAverageTaskTime(taskTime: number): void {
+    const totalTasks = this.metrics.tasksSucceeded;
+    if (totalTasks === 1) {
+      this.metrics.averageTaskTime = taskTime;
+    } else {
+      this.metrics.averageTaskTime = 
+        (this.metrics.averageTaskTime * (totalTasks - 1) + taskTime) / totalTasks;
+    }
+  }
+
+  /**
+   * Update pool utilization metric
+   */
+  private updatePoolUtilization(): void {
+    const busyWorkers = this.pool.filter(w => w.status === WorkerStatus.BUSY).length;
+    this.metrics.poolUtilization = busyWorkers / this.pool.length;
+  }
+
+  /**
+   * Get worker pool statistics
+   */
+  getPoolStats() {
+    return {
+      workers: this.pool.map(w => w.getStats()),
+      metrics: this.metrics,
+      poolSize: this.pool.length,
+      availableWorkers: this.pool.filter(w => w.isAvailable()).length,
+      busyWorkers: this.pool.filter(w => w.status === WorkerStatus.BUSY).length,
+      errorWorkers: this.pool.filter(w => w.status === WorkerStatus.ERROR).length
+    };
+  }
+
+  /**
+   * Scale the pool up or down
+   */
+  async scalePool(newSize: number): Promise<void> {
+    if (newSize === this.pool.length) {
+      return;
+    }
+    
+    if (newSize > this.pool.length) {
+      // Scale up
+      const toAdd = newSize - this.pool.length;
+      this.logger.info(`Scaling up pool by ${toAdd} workers`);
+      
+      for (let i = 0; i < toAdd; i++) {
+        const worker = new WorkerInstance(`worker-${this.pool.length + 1}`);
+        const automation = this.automationFactory();
+        await worker.initialize(automation);
+        this.pool.push(worker);
+      }
+      
+    } else {
+      // Scale down
+      const toRemove = this.pool.length - newSize;
+      this.logger.info(`Scaling down pool by ${toRemove} workers`);
+      
+      // Remove idle workers first
+      const idleWorkers = this.pool
+        .filter(w => w.isAvailable())
+        .slice(0, toRemove);
+      
+      for (const worker of idleWorkers) {
+        await worker.terminate();
+        const index = this.pool.indexOf(worker);
+        if (index > -1) {
+          this.pool.splice(index, 1);
+        }
+      }
+    }
+    
+    this.maxConcurrent = newSize;
+    this.logger.info(`Pool scaled to ${this.pool.length} workers`);
+  }
+
+  /**
+   * Gracefully shutdown the worker pool
+   */
+  async shutdown(): Promise<void> {
+    this.logger.info('Shutting down worker pool');
+    this.isRunning = false;
+    
+    // Wait for busy workers to finish
+    const busyWorkers = this.pool.filter(w => w.status === WorkerStatus.BUSY);
+    if (busyWorkers.length > 0) {
+      this.logger.info(`Waiting for ${busyWorkers.length} busy workers to finish`);
+      
+      // Wait max 30 seconds for workers to finish
+      const timeout = Date.now() + 30000;
+      while (Date.now() < timeout) {
+        const stillBusy = this.pool.filter(w => w.status === WorkerStatus.BUSY);
+        if (stillBusy.length === 0) {
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    // Terminate all workers
+    await Promise.all(this.pool.map(w => w.terminate()));
+    
+    this.pool = [];
+    this.logger.info('Worker pool shutdown complete');
+  }
+}

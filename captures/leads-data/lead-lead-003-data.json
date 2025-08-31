@@ -1,0 +1,24 @@
+{
+  "id": "lead-003",
+  "authorHandle": "tech_consultant",
+  "authorName": "Mike Rodriguez",
+  "threadUrl": "https://threads.net/@tech_consultant/post/C789ghi012",
+  "text": "Just lost 3 days of productivity due to manual data entry. There has to be a better way to handle lead qualification and scoring. What are you all using?",
+  "metrics": {
+    "replies": 31,
+    "likes": 203,
+    "reposts": 18,
+    "views": 4567
+  },
+  "timestamp": "1 day ago",
+  "score": 0.95,
+  "category": "HOT",
+  "keywords": [
+    "productivity",
+    "lead qualification",
+    "automation"
+  ],
+  "capturedAt": "2025-08-30T11:08:15.337Z",
+  "screenshotPath": "lead-lead-003-screenshot.html",
+  "actionRequired": "IMMEDIATE"
+}

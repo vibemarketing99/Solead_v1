@@ -1,0 +1,24 @@
+{
+  "id": "lead-002",
+  "authorHandle": "marketing_director",
+  "authorName": "Sarah Johnson",
+  "threadUrl": "https://threads.net/@marketing_director/post/C456def789",
+  "text": "Looking for workflow automation experts. Our team is drowning in repetitive tasks. Need someone who can help us streamline our processes ASAP. Budget approved.",
+  "metrics": {
+    "replies": 15,
+    "likes": 89,
+    "reposts": 5,
+    "views": 1523
+  },
+  "timestamp": "5 hours ago",
+  "score": 0.87,
+  "category": "WARM",
+  "keywords": [
+    "workflow",
+    "automation",
+    "processes"
+  ],
+  "capturedAt": "2025-08-30T11:08:15.337Z",
+  "screenshotPath": "lead-lead-002-screenshot.html",
+  "actionRequired": "SCHEDULED"
+}
